@@ -72,7 +72,9 @@ function CartView({
 					aria-hidden={!isOpen}
 					aria-label="Pré-visualização do carrinho"
 					className={`cart:w-80 cart:bg-surface cart:border cart:border-outline-variant cart:rounded-xl cart:shadow-2xl cart:p-4 cart:transition-all cart:duration-200 ${
-						isOpen ? "cart:opacity-100 cart:visible" : "cart:opacity-0 cart:invisible"
+						isOpen
+							? "cart:opacity-100 cart:visible"
+							: "cart:opacity-0 cart:invisible"
 					}`}
 					id="cart-panel"
 				>
@@ -93,7 +95,10 @@ function CartView({
 					) : (
 						<>
 							{items.map((item) => (
-								<div className="cart:flex cart:gap-4 cart:mb-6" key={item.productId}>
+								<div
+									className="cart:flex cart:gap-4 cart:mb-6"
+									key={item.productId}
+								>
 									<div className="cart:w-20 cart:h-20 cart:bg-surface-container-low cart:rounded-lg cart:overflow-hidden cart:border cart:border-outline-variant cart:shrink-0">
 										<img
 											alt={item.name}
@@ -118,7 +123,9 @@ function CartView({
 							))}
 							<div className="cart:border-t cart:border-outline-variant cart:pt-4 cart:flex cart:flex-col cart:gap-4">
 								<div className="cart:flex cart:justify-between cart:items-center">
-									<span className="cart:text-body-md cart:text-on-surface">Subtotal</span>
+									<span className="cart:text-body-md cart:text-on-surface">
+										Subtotal
+									</span>
 									<span className="cart:font-price-lg cart:text-headline-md">
 										{formatPrice(subtotal)}
 									</span>

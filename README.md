@@ -17,6 +17,7 @@ Exposes `./Cart` → `src/components/cart-container.tsx` as `cart/Cart` when con
 | `npm run test-coverage` | Unit tests with coverage |
 | `npm run type-check` | `tsc --noEmit` |
 | `npm run format-and-lint` | Biome check |
+| `npm run report-build-artifacts` | CI build size summary (requires `dist/`) |
 
 ## Local development
 
@@ -26,4 +27,8 @@ Exposes `./Cart` → `src/components/cart-container.tsx` as `cart/Cart` when con
 
 ## CI
 
-Push/PR to `main` runs lint, build, type-check, and `test-coverage`.
+Push/PR to `main` runs lint, build, artifact report and upload (`cart-dist`), type-check, and `test-coverage`. The workflow writes a build size table to the job summary.
+
+## Contributor guidelines
+
+Agent and contributor conventions: [`.cursor/rules/project-guidelines.mdc`](.cursor/rules/project-guidelines.mdc).

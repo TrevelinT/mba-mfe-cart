@@ -1,0 +1,191 @@
+---
+description: mfe-cart repository guidelines
+alwaysApply: true
+---
+
+# Project guidelines (`mfe-cart`)
+
+## Node version (nvm)
+
+This repo pins Node in [`.nvmrc`](.nvmrc) and `package.json` `engines` (currently **24.15.0**).
+
+Before any Node/npm command (`npm`, `npx`, `node`, `vite`, etc.), from **this repo root**:
+
+1. Source nvm, activate the pinned version, then **prepend nvm's Node to `PATH`** (Cursor's agent shell can override `nvm use`):
+
+   ```sh
+   source ~/.nvm/nvm.sh
+   nvm use
+   export PATH="$HOME/.nvm/versions/node/v$(cat .nvmrc)/bin:$PATH"
+   ```
+
+2. Prefer one chained command (example with checks):
+
+   ```sh
+   source ~/.nvm/nvm.sh && nvm use && export PATH="$HOME/.nvm/versions/node/v$(cat .nvmrc)/bin:$PATH" && npm run format-and-lint && npm run test
+   ```
+
+3. If `nvm use` fails because the version is not installed, run `nvm install`, then retry.
+
+Do not assume the system default Node is correct — verify with `node -v` when troubleshooting engine or Vite errors.
+
+## Boundaries in the MFE polyrepo
+
+**Purpose:** Header cart remote in the four-repo polyrepo. Integrates with shell, product, and buy-box **without** cross-repo imports.
+
+**Owns:**
+
+- Cart store and line items (`getCartItems`, `subscribeToCartStore`)
+- Catalog mock (`getCatalogItem`) and `cart:add-item` subscription
+- Presentational cart UI ([`cart-view.tsx`](src/components/cart-view.tsx))
+- Package styles ([`src/styles.css`](src/styles.css), imported from the container)
+
+**Does not own:**
+
+- Product page content (product remote)
+- Price, installments, or add-to-cart button (buy-box remote)
+- Host layout (shell remote)
+
+**Principles:**
+
+- **No imports** from product or buy-box (separate git repos / federation remotes).
+- **Shell is host only** — loads `cart/Cart` via Module Federation; does not pass cart state into this remote.
+- **`CATALOG_PRODUCT_ID`** (`nintendo-switch-2` in [`src/api/catalog.ts`](src/api/catalog.ts)) must stay aligned with product `PRODUCT_ID` and buy-box offer id across repos.
+- **Subscribes** to `cart:add-item` on `document` (buy-box dispatches; product does not).
+
+**Do not:**
+
+- Import product or buy-box source from this repo.
+- Add shared integration packages without an explicit repo decision.
+
+## Module Federation
+
+Configured in [`vite.config.ts`](vite.config.ts):
+
+| Setting | Value |
+|---------|--------|
+| Remote name | `cart` |
+| Dev/preview port | **5003** |
+| Expose | `./Cart` → [`src/components/cart-container.tsx`](src/components/cart-container.tsx) |
+
+- Shell consumes **`cart/Cart`** (default export from the container).
+- This repo does not declare federation remotes.
+- Container imports [`src/styles.css`](src/styles.css) so styles ship with the remote.
+- After **CSS or federation build** changes: `npm run build && npm run preview`. Rebuild when changing [`vite-federation-css-fix.ts`](vite-federation-css-fix.ts).
+
+**Standalone dev:** [`src/main.tsx`](src/main.tsx) + `index.html` on port 5003 (`npm run dev`).
+
+## Cart state and add-to-cart integration
+
+**Purpose:** In-memory cart updated when buy-box dispatches `cart:add-item` on `document`. Shell mounts federated `<Cart />` only.
+
+- **Event:** `CART_ADD_ITEM_EVENT` (`cart:add-item`) — payload `AddToCartCommand` (`productId`, `quantity`) from [`src/api/cart-events.ts`](src/api/cart-events.ts).
+- **Pub/sub:** [`cart-pubsub.ts`](src/api/cart-pubsub.ts) — `subscribeToCart` / `unsubscribeFromCart` on `document`.
+- **Store:** [`cart-store.ts`](src/api/cart-store.ts) — `subscribeToCartStore` wires pub/sub to catalog lookup and `addToCart`; `getCartItems` snapshot for `useSyncExternalStore`.
+- **Catalog:** `getCatalogItem(productId, options?)` — options object; default `latencyMs: 300`. Unknown ids are ignored.
+- **Container:** [`cart-container.tsx`](src/components/cart-container.tsx) — `useSyncExternalStore`, hover/touch open behavior, passes props to `CartView`.
+- **View:** [`cart-view.tsx`](src/components/cart-view.tsx) — presentational only.
+- **Tests:** pass `{ latencyMs: 0 }` to `getCatalogItem`; use `resetCartStore` between cases.
+
+| API | Role | Container | View |
+|-----|------|-----------|------|
+| `subscribeToCartStore` | External store subscription | `CartContainer` | — |
+| `getCatalogItem` | Resolve line metadata on add | via store | — |
+| `getCartSummary` | `itemCount`, `subtotal` | `CartContainer` | — |
+| `CartView` | UI | props from container | presentational |
+
+**Files:** [`src/api/cart-events.ts`](src/api/cart-events.ts), [`src/api/cart-pubsub.ts`](src/api/cart-pubsub.ts), [`src/api/cart-store.ts`](src/api/cart-store.ts), [`src/api/catalog.ts`](src/api/catalog.ts), [`src/components/cart-container.tsx`](src/components/cart-container.tsx), [`src/components/cart-view.tsx`](src/components/cart-view.tsx).
+
+**When changing:** update `src/api/*`, container/view, tests, and this section.
+
+**Do not:**
+
+- Dispatch `cart:add-item` from this repo (buy-box owns that).
+- Export store subscription helpers from [`src/index.ts`](src/index.ts) unless deliberately widening the public API.
+- Add positional args to `getCatalogItem`.
+
+```mermaid
+sequenceDiagram
+  participant BuyBox as buyBox remote
+  participant Doc as document
+  participant PubSub as cart-pubsub
+  participant Store as cart-store
+  participant Catalog as getCatalogItem
+  participant Container as CartContainer
+  participant View as CartView
+  BuyBox->>Doc: cart:add-item
+  Doc->>PubSub: CustomEvent
+  PubSub->>Store: AddToCartCommand
+  Store->>Catalog: productId
+  Catalog-->>Store: CatalogItem
+  Store-->>Container: useSyncExternalStore
+  Container->>View: props
+```
+
+## Public API and internal imports
+
+**Federation entry:** shell loads `./Cart` (container) — not deep paths under `src/`.
+
+**[`src/index.ts`](src/index.ts):** exports `Cart` (`CartContainer`) and `cartAPI` for tests/tooling. Do not export `CartView` or internal store wiring unless explicitly required.
+
+**Container/view split:** export container as `Cart`; view components stay internal.
+
+**Package-internal tests** may import directly from source files (e.g. `./cart-view`, `../api/catalog`) — not bound by `index.ts`.
+
+| From | Import via | Example |
+|------|------------|---------|
+| `src/components/*` | [`src/api/index.ts`](src/api/index.ts) (`../api`) | `import type { CartLineItem } from "../api"` |
+| `src/components/*` (container → view) | Sibling (`./cart-view`) | **not** `./index` or `../components` |
+| `src/api/*` | Sibling modules (`./catalog`, …) | Avoid `from "./index"` inside `api/` (circular barrel) |
+
+- **Do not** import from [`src/index.ts`](src/index.ts) inside this repo (entry loads container → cycle).
+- **Do not** import views through [`src/components/index.ts`](src/components/index.ts) from a container: barrel exports container → `from "./index"` cycles.
+- Re-export new API symbols from `src/api/index.ts` so components can use `../api`.
+
+| Export | Namespace | Key symbols |
+|--------|-----------|-------------|
+| `Cart` (`CartContainer`) | `cartAPI` | `CART_ADD_ITEM_EVENT`, `getCatalogItem`, `CATALOG_PRODUCT_ID`, `CartLineItem`, … |
+
+When adding a new public symbol, update `src/index.ts` and tests.
+
+## TypeScript interfaces
+
+- **Component props:** use `interface`, not `type`, named `{ComponentName}Props` (e.g. `CartViewProps`).
+- **Export:** export the props interface when tests or callers need it; keep internal-only props unexported.
+- **API / domain shapes:** prefer `interface` for plain objects (`CatalogItem`, `CartLineItem`); use `type` only for unions, intersections, or mapped types.
+- **Optional fields:** use `?` (e.g. `latencyMs?: number` in options); omit the DOM node when absent.
+- **Reference:** [`src/components/cart-view.tsx`](src/components/cart-view.tsx).
+
+## Done means green
+
+Do not treat a coding task as finished until **lint/format**, **unit tests**, and (when applicable) **build/type-check** pass from **this repo root** (after nvm setup above).
+
+### Lint and format
+
+1. Run `npm run format-and-lint` (Biome).
+2. If it fails, fix manually or run `npm run format-and-lint:fix`, then re-run until green.
+3. Do not skip violations unless the user explicitly asks.
+
+### Unit tests
+
+1. Run `npm run test` (or `npm run test-coverage` to mirror [CI](.github/workflows/ci.yml)).
+2. Fix failing tests; re-run until green.
+
+### Build and type-check
+
+When touching types, Vite config, federation, or CSS workaround:
+
+1. `npm run type-check`
+2. `npm run build`
+
+### E2E (shell repo only)
+
+This repo does **not** run Playwright. When UI/behavior affects the integrated page, coordinate with the **shell** remote (E2E checks out built remotes). Skip for docs-only edits here.
+
+### When to run
+
+- After substantive code changes, before summarizing completion.
+- **Feature work:** `format-and-lint` → `test` → `type-check` / `build` when relevant.
+- Docs-only: run checks when unsure; otherwise note why skipped.
+
+If a command fails, fix the root cause and re-run before finishing.
