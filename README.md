@@ -18,6 +18,9 @@ Exposes `./Cart` → `src/components/cart-container.tsx` as `cart/Cart` when con
 | `npm run type-check` | `tsc --noEmit` |
 | `npm run format-and-lint` | Biome check |
 | `npm run report-build-artifacts` | CI build size summary (requires `dist/`) |
+| `npm run changeset` | Add a changeset (semver bump + notes) |
+| `npm run version-packages` | Apply pending changesets (used by Release CI) |
+| `npm run release` | Create GitHub tag/release `vX.Y.Z` (used by Release CI) |
 
 ## Local development
 
@@ -27,19 +30,33 @@ Exposes `./Cart` → `src/components/cart-container.tsx` as `cart/Cart` when con
 
 ## CI
 
-Push/PR to `main` runs lint, build, type-check, and `test-coverage`. Production builds set `VITE_BASE=/mba-mfe-cart/` so artifacts work on GitHub Pages.
+[GitHub Actions](https://docs.github.com/en/actions) ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on push to `main`, on pull request open/sync, and on demand via **Run workflow** (`workflow_dispatch`).
 
-## Deploy (GitHub Pages)
+| Job | What runs |
+|-----|-----------|
+| **Build and Quality** | lint → build (`VITE_BASE=/mba-mfe-cart/`) → artifact report → upload `cart-dist` → type-check → test-coverage |
+| **Lighthouse CI** | `needs: build` → download `cart-dist` → standalone preview at `/mba-mfe-cart/` |
 
-One-time setup in the repository **Settings → Pages**: set **Source** to **GitHub Actions** (not “Deploy from a branch”). Confirm the `github-pages` environment exists.
+## Release
 
-The federation remote is published from CI artifacts (no rebuild in deploy):
+Versions are managed with [Changesets](https://github.com/changesets/changesets). Include a changeset in any PR that should bump the version:
 
-1. Wait for a successful **CI** run on `main`.
-2. **Manual:** copy **artifact_id** from the CI job summary (and use the artifact link there if helpful). Run **Deploy to GitHub Pages** (`workflow_dispatch`) and paste that ID. Use the number after `/artifacts/` in the artifact URL—not the run ID after `/actions/runs/` in the browser address bar. Deploy resolves the owning CI run internally.
-3. **Tag:** push a `v*` tag (e.g. `v1.0.0`) on a commit that already has a successful CI run on `main`; deploy resolves the `cart-dist` artifact for that commit.
+```sh
+npm run changeset
+```
 
-Site URL: `https://trevelint.github.io/mba-mfe-cart/`. Point the shell cart remote at the deployed `remoteEntry.js` path under that base (verify after first deploy).
+### What happens on `main`
+
+1. Merge the feature PR (with changesets) to `main`.
+2. **CI** runs. Only if it succeeds does **Release** ([`.github/workflows/release.yml`](.github/workflows/release.yml)) start.
+3. Release opens or updates a **Version Packages** PR.
+4. Review and merge that PR when you want to cut a version.
+5. CI runs again. On success, Release runs `npm run release`: if the version is not `0.0.0` and `v{version}` does not exist yet, it creates that GitHub tag and Release from `CHANGELOG.md`.
+6. **CD** ([`.github/workflows/cd.yml`](.github/workflows/cd.yml)) starts after Release succeeds. If a `v*` tag points at that commit, it reuses the CI `cart-dist` artifact and deploys to GitHub Pages.
+
+Site URL: [https://trevelint.github.io/mba-mfe-cart/](https://trevelint.github.io/mba-mfe-cart/). Point the shell cart remote at the deployed `remoteEntry.js` path under that base.
+
+**One-time repo setting:** Settings → Pages → Build and deployment → Source = **GitHub Actions** (not a branch). Confirm the `github-pages` environment exists.
 
 ## Contributor guidelines
 
