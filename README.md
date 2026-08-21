@@ -35,7 +35,6 @@ Exposes `./Cart` → `src/components/cart-container.tsx` as `cart/Cart` when con
 | Job | What runs |
 |-----|-----------|
 | **Build and Quality** | lint → build (`VITE_BASE=/mba-mfe-cart/`) → artifact report → upload `cart-dist` → type-check → test-coverage |
-| **Lighthouse CI** | `needs: build` → download `cart-dist` → standalone preview at `/mba-mfe-cart/` |
 
 ## Release
 
