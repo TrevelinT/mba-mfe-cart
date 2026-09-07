@@ -1,5 +1,11 @@
 # mfe-cart
 
+## 1.1.0
+
+### Minor Changes
+
+- [#3](https://github.com/TrevelinT/mba-mfe-cart/pull/3) [`b501920`](https://github.com/TrevelinT/mba-mfe-cart/commit/b5019204ca449084e97a295dc40259677891a160) Thanks [@TrevelinT](https://github.com/TrevelinT)! - Add editable cart quantity stepper and trash delete
+
 ## 1.0.0
 
 ### Major Changes
