@@ -13,6 +13,48 @@ export interface CartViewProps {
 	onMouseEnter: () => void;
 	onMouseLeave: () => void;
 	onButtonClick: () => void;
+	onRemoveItem: (productId: string) => void;
+	onIncreaseItem: (productId: string) => void;
+	onDeleteItem: (productId: string) => void;
+}
+
+function MinusIcon() {
+	return (
+		<svg
+			aria-hidden="true"
+			className="cart:size-4"
+			fill="currentColor"
+			viewBox="0 0 24 24"
+		>
+			<path d="M19 13H5v-2h14v2z" />
+		</svg>
+	);
+}
+
+function PlusIcon() {
+	return (
+		<svg
+			aria-hidden="true"
+			className="cart:size-4"
+			fill="currentColor"
+			viewBox="0 0 24 24"
+		>
+			<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+		</svg>
+	);
+}
+
+function TrashIcon() {
+	return (
+		<svg
+			aria-hidden="true"
+			className="cart:size-4"
+			fill="currentColor"
+			viewBox="0 0 24 24"
+		>
+			<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+		</svg>
+	);
 }
 
 function ShoppingCartIcon() {
@@ -39,6 +81,9 @@ function CartView({
 	onMouseEnter,
 	onMouseLeave,
 	onButtonClick,
+	onRemoveItem,
+	onIncreaseItem,
+	onDeleteItem,
 }: CartViewProps) {
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: wrapper spans button and panel for hover
@@ -119,9 +164,42 @@ function CartView({
 											<p className="cart:font-bold cart:text-body-sm cart:line-clamp-1">
 												{item.name}
 											</p>
-											<p className="cart:text-body-sm cart:text-secondary">
-												Quantidade: {item.quantity}
-											</p>
+											<div className="cart:flex cart:items-center cart:gap-2 cart:mt-1">
+												<div className="cart:flex cart:items-center cart:border cart:border-outline-variant cart:rounded">
+													<button
+														aria-label={`Diminuir quantidade de ${item.name}`}
+														className="cart:p-1 cart:hover:bg-surface-container cart:transition-colors cart:cursor-pointer cart:text-secondary cart:hover:text-on-surface cart:disabled:opacity-40 cart:disabled:cursor-not-allowed cart:disabled:hover:bg-transparent cart:disabled:hover:text-secondary"
+														disabled={item.quantity === 1}
+														onClick={() => onRemoveItem(item.productId)}
+														type="button"
+													>
+														<MinusIcon />
+													</button>
+													<span
+														aria-live="polite"
+														className="cart:min-w-6 cart:text-center cart:text-body-sm cart:font-bold"
+														role="status"
+													>
+														{item.quantity}
+													</span>
+													<button
+														aria-label={`Aumentar quantidade de ${item.name}`}
+														className="cart:p-1 cart:hover:bg-surface-container cart:transition-colors cart:cursor-pointer cart:text-secondary cart:hover:text-on-surface"
+														onClick={() => onIncreaseItem(item.productId)}
+														type="button"
+													>
+														<PlusIcon />
+													</button>
+												</div>
+												<button
+													aria-label={`Remover ${item.name} do carrinho`}
+													className="cart:p-1 cart:rounded cart:hover:bg-surface-container cart:transition-colors cart:cursor-pointer cart:text-secondary cart:hover:text-on-surface"
+													onClick={() => onDeleteItem(item.productId)}
+													type="button"
+												>
+													<TrashIcon />
+												</button>
+											</div>
 										</div>
 										<p className="cart:font-bold cart:text-primary cart:text-body-md">
 											{formatPrice(item.unitPrice * item.quantity)}
